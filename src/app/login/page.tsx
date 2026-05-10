@@ -13,18 +13,16 @@ export default function LoginPage() {
 
   async function handleSendOTP(e: React.FormEvent) {
     e.preventDefault()
-    if (!email.endsWith('@gmail.com') && !email.includes('@')) {
-      toast.error('Please enter a valid email address')
-      return
-    }
     setLoading(true)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: false },
+      options: {
+        shouldCreateUser: true,
+      },
     })
     setLoading(false)
     if (error) {
-      toast.error(error.message || 'Failed to send OTP. Check your email.')
+      toast.error(error.message || 'Failed to send code.')
       return
     }
     toast.success('6-digit code sent to your Gmail!')
@@ -59,8 +57,7 @@ export default function LoginPage() {
         </div>
         <div>
           <h2 className="text-4xl font-bold text-gray-900 leading-tight mb-4">
-            Track every sale.<br />
-            Grow every day.
+            Track every sale.<br /> Grow every day.
           </h2>
           <p className="text-gray-500 text-lg leading-relaxed">
             Your sales dashboard for LiFi — the AI companion language learning app.
@@ -106,7 +103,11 @@ export default function LoginPage() {
                   autoFocus
                 />
               </div>
-              <button type="submit" className="btn-primary w-full justify-center py-2.5" disabled={loading}>
+              <button
+                type="submit"
+                className="btn-primary w-full justify-center py-2.5"
+                disabled={loading}
+              >
                 {loading ? 'Sending…' : 'Send code'}
               </button>
             </form>
@@ -125,13 +126,20 @@ export default function LoginPage() {
                   autoFocus
                 />
               </div>
-              <button type="submit" className="btn-primary w-full justify-center py-2.5" disabled={loading || otp.length < 6}>
+              <button
+                type="submit"
+                className="btn-primary w-full justify-center py-2.5"
+                disabled={loading || otp.length < 6}
+              >
                 {loading ? 'Verifying…' : 'Sign in'}
               </button>
               <button
                 type="button"
                 className="w-full text-sm text-gray-500 hover:text-gray-700 text-center py-1"
-                onClick={() => { setStep('email'); setOtp('') }}
+                onClick={() => {
+                  setStep('email');
+                  setOtp('')
+                }}
               >
                 ← Use a different email
               </button>
