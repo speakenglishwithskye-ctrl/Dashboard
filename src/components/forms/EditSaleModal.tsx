@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { X } from 'lucide-react'
 import { planLabel, platformLabel } from '@/lib/utils'
-import type { Sale, PremiumPlan } from '@/types'
+import type { Sale, PremiumPlan, SaleType, Platform } from '@/types'
 
 interface EditSaleModalProps {
   sale: Sale
@@ -14,16 +14,17 @@ interface EditSaleModalProps {
 }
 
 const PLANS: PremiumPlan[] = ['weekly', 'monthly', 'three_months', 'six_months', 'yearly']
-const PLATFORMS = ['telegram', 'facebook', 'tiktok']
+const PLATFORMS: Platform[] = ['telegram', 'facebook', 'tiktok']
+const SALE_TYPES: SaleType[] = ['real_sale', 'giveaway']
 
 export default function EditSaleModal({ sale, onClose, onSaved }: EditSaleModalProps) {
   const supabase = createClient()
   const [form, setForm] = useState({
     buyer_email: sale.buyer_email,
-    premium_plan: sale.premium_plan,
+    premium_plan: sale.premium_plan as PremiumPlan,
     sale_date: sale.sale_date,
-    sale_type: sale.sale_type,
-    platform: sale.platform,
+    sale_type: sale.sale_type as SaleType,
+    platform: sale.platform as Platform,
     price: String(sale.price),
     notes: sale.notes || '',
   })
@@ -83,7 +84,7 @@ export default function EditSaleModal({ sale, onClose, onSaved }: EditSaleModalP
           <div>
             <label className="notion-label">Sale Type</label>
             <div className="flex gap-3">
-              {['real_sale', 'giveaway'].map(type => (
+              {SALE_TYPES.map(type => (
                 <button key={type} type="button"
                   onClick={() => setForm(f => ({ ...f, sale_type: type }))}
                   className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${form.sale_type === type ? 'border-sky-400 bg-sky-50 text-sky-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
