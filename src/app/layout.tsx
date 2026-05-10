@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import { Geist } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 
-const geist = Geist({
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-geist',
 })
@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={geist.variable}>
+    <html lang="en" className={inter.variable}>
       <body className="bg-gray-50 text-gray-900 antialiased">
         {children}
         <Toaster
