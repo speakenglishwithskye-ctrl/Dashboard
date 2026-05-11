@@ -25,7 +25,7 @@ export default function LoginPage() {
       toast.error(error.message || 'Failed to send code.')
       return
     }
-    toast.success('6-digit code sent to your Gmail!')
+    toast.success('Login code sent to your Gmail!')
     setStep('otp')
   }
 
@@ -57,7 +57,8 @@ export default function LoginPage() {
         </div>
         <div>
           <h2 className="text-4xl font-bold text-gray-900 leading-tight mb-4">
-            Track every sale.<br /> Grow every day.
+            Track every sale.<br />
+            Grow every day.
           </h2>
           <p className="text-gray-500 text-lg leading-relaxed">
             Your sales dashboard for LiFi — the AI companion language learning app.
@@ -85,8 +86,8 @@ export default function LoginPage() {
           </h1>
           <p className="text-sm text-gray-500 mb-8">
             {step === 'email'
-              ? 'Enter your Gmail address to receive a 6-digit code.'
-              : `We sent a 6-digit code to ${email}`}
+              ? 'Enter your Gmail address to receive a Login code.'
+              : `We sent a Login code to ${email}`}
           </p>
 
           {step === 'email' ? (
@@ -103,25 +104,21 @@ export default function LoginPage() {
                   autoFocus
                 />
               </div>
-              <button
-                type="submit"
-                className="btn-primary w-full justify-center py-2.5"
-                disabled={loading}
-              >
+              <button type="submit" className="btn-primary w-full justify-center py-2.5" disabled={loading}>
                 {loading ? 'Sending…' : 'Send code'}
               </button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOTP} className="space-y-4">
               <div>
-                <label className="notion-label">6-digit code</label>
+                <label className="notion-label">Login code</label>
                 <input
                   type="text"
                   className="notion-input text-center text-2xl tracking-[0.5em] font-mono"
-                  placeholder="000000"
+                  placeholder="00000000"
                   value={otp}
-                  onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  maxLength={6}
+                  onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  maxLength={8}
                   required
                   autoFocus
                 />
@@ -136,10 +133,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 className="w-full text-sm text-gray-500 hover:text-gray-700 text-center py-1"
-                onClick={() => {
-                  setStep('email');
-                  setOtp('')
-                }}
+                onClick={() => { setStep('email'); setOtp('') }}
               >
                 ← Use a different email
               </button>
