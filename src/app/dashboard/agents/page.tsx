@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/ui/PageHeader'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { UserPlus, Mail } from 'lucide-react'
+import { UserPlus, Mail, Copy, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Profile } from '@/types'
 
@@ -24,10 +24,10 @@ export default function AgentsPage() {
   const [inviteRole, setInviteRole] = useState<'agent' | 'admin'>('agent')
   const [inviteName, setInviteName] = useState('')
   const [inviting, setInviting] = useState(false)
+  const [inviteLink, setInviteLink] = useState('')
+  const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    loadAgents()
-  }, [])
+  useEffect(() => { loadAgents() }, [])
 
   async function loadAgents() {
     const { data: profiles } = await supabase.from('profiles').select('*').order('created_at')
@@ -54,31 +54,40 @@ export default function AgentsPage() {
     e.preventDefault()
     setInviting(true)
 
-    // Create profile record for the invited user
-    const { error } = await supabase.from('profiles').insert({
+    // Step 1: Upsert profile with correct role so it's ready when they log in
+    const { error } = await supabase.from('profiles').upsert({
       email: inviteEmail,
       role: inviteRole,
       full_name: inviteName,
-    })
+    }, { onConflict: 'email' })
 
-    if (error && !error.message.includes('duplicate')) {
-      toast.error('Failed to prepare invite: ' + error.message)
+    if (error) {
+      toast.error('Failed: ' + error.message)
       setInviting(false)
       return
     }
 
-    // Generate invite link
-    const inviteUrl = `${window.location.origin}/invite?email=${encodeURIComponent(inviteEmail)}&role=${inviteRole}`
-
-    // In production, you'd use Supabase Admin API to send actual invite email
-    // For now, copy the invite link
-    await navigator.clipboard.writeText(inviteUrl).catch(() => {})
-    toast.success(`Invite link copied! Send to ${inviteEmail}`)
-    setShowInvite(false)
-    setInviteEmail('')
-    setInviteName('')
+    // Step 2: Generate invite link
+    const link = `${window.location.origin}/invite?email=${encodeURIComponent(inviteEmail)}`
+    setInviteLink(link)
     setInviting(false)
     loadAgents()
+  }
+
+  async function copyLink() {
+    await navigator.clipboard.writeText(inviteLink)
+    setCopied(true)
+    toast.success('Invite link copied!')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  function resetInvite() {
+    setShowInvite(false)
+    setInviteLink('')
+    setInviteEmail('')
+    setInviteName('')
+    setInviteRole('agent')
+    setCopied(false)
   }
 
   return (
@@ -99,34 +108,64 @@ export default function AgentsPage() {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-modal">
             <h3 className="font-semibold text-gray-900 mb-4">Invite New Member</h3>
-            <form onSubmit={handleInvite} className="space-y-4">
-              <div>
-                <label className="notion-label">Full Name</label>
-                <input className="notion-input" placeholder="Jane Smith" value={inviteName} onChange={e => setInviteName(e.target.value)} required />
-              </div>
-              <div>
-                <label className="notion-label">Gmail Address</label>
-                <input type="email" className="notion-input" placeholder="agent@gmail.com" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
-              </div>
-              <div>
-                <label className="notion-label">Role</label>
-                <div className="flex gap-3">
-                  {(['agent', 'admin'] as const).map(r => (
-                    <button key={r} type="button" onClick={() => setInviteRole(r)}
-                      className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all capitalize ${inviteRole === r ? 'border-sky-400 bg-sky-50 text-sky-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
-                      {r}
-                    </button>
-                  ))}
+
+            {!inviteLink ? (
+              <form onSubmit={handleInvite} className="space-y-4">
+                <div>
+                  <label className="notion-label">Full Name</label>
+                  <input className="notion-input" placeholder="Jane Smith"
+                    value={inviteName} onChange={e => setInviteName(e.target.value)} required />
                 </div>
+                <div>
+                  <label className="notion-label">Gmail Address</label>
+                  <input type="email" className="notion-input" placeholder="agent@gmail.com"
+                    value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="notion-label">Role</label>
+                  <div className="flex gap-3">
+                    {(['agent', 'admin'] as const).map(r => (
+                      <button key={r} type="button" onClick={() => setInviteRole(r)}
+                        className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all capitalize ${inviteRole === r ? 'border-sky-400 bg-sky-50 text-sky-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={resetInvite} className="btn-secondary flex-1 justify-center">Cancel</button>
+                  <button type="submit" className="btn-primary flex-1 justify-center" disabled={inviting}>
+                    <Mail className="w-4 h-4" />
+                    {inviting ? 'Creating…' : 'Generate Link'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* Show the generated link */
+              <div className="space-y-4">
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm font-medium text-green-700 mb-1">✅ Invite ready for {inviteName}</p>
+                  <p className="text-xs text-green-600">Role: <span className="font-semibold capitalize">{inviteRole}</span></p>
+                </div>
+                <div>
+                  <label className="notion-label">Invite Link — send this to {inviteEmail}</label>
+                  <div className="flex gap-2">
+                    <input
+                      className="notion-input text-xs flex-1"
+                      value={inviteLink}
+                      readOnly
+                    />
+                    <button onClick={copyLink} className="btn-primary px-3 shrink-0">
+                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Send this link via WhatsApp or Telegram. They click it, enter their Gmail, get a code, and they&apos;re in with <span className="font-medium capitalize">{inviteRole}</span> access.
+                </p>
+                <button onClick={resetInvite} className="btn-secondary w-full justify-center">Done</button>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowInvite(false)} className="btn-secondary flex-1 justify-center">Cancel</button>
-                <button type="submit" className="btn-primary flex-1 justify-center" disabled={inviting}>
-                  <Mail className="w-4 h-4" />
-                  {inviting ? 'Generating…' : 'Copy Invite Link'}
-                </button>
-              </div>
-            </form>
+            )}
           </div>
         </div>
       )}
@@ -143,11 +182,11 @@ export default function AgentsPage() {
                     {agent.full_name?.charAt(0)?.toUpperCase() || agent.email.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{agent.full_name || '—'}</p>
-                  <p className="text-xs text-gray-400">{agent.email}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 truncate">{agent.full_name || '—'}</p>
+                  <p className="text-xs text-gray-400 truncate">{agent.email}</p>
                 </div>
-                <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-medium capitalize ${agent.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0 ${agent.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
                   {agent.role}
                 </span>
               </div>
