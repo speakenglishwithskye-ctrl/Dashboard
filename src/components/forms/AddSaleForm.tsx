@@ -222,9 +222,9 @@ export default function AddSaleForm({ agentId }: AddSaleFormProps) {
 
       {/* Price */}
       <div>
-        <label className="notion-label">Price (USD) <span className="text-red-400">*</span></label>
+        <label className="notion-label">Price (MMK) <span className="text-red-400">*</span></label>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">MMK</span>
           <input
             type="number"
             className="notion-input pl-7"
