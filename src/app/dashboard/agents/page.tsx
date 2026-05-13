@@ -32,7 +32,6 @@ export default function AgentsPage() {
   async function loadAgents() {
     const { data: profiles } = await supabase.from('profiles').select('*').order('created_at')
     const { data: sales } = await supabase.from('sales').select('agent_id, price, is_repeat_buyer')
-
     const statsMap: Record<string, AgentStats> = {}
     profiles?.forEach(p => {
       statsMap[p.id] = { ...p, total_sales: 0, total_revenue: 0, new_buyers: 0, repeat_buyers: 0 }
@@ -45,7 +44,6 @@ export default function AgentsPage() {
         else statsMap[s.agent_id].new_buyers++
       }
     })
-
     setAgents(Object.values(statsMap))
     setLoading(false)
   }
@@ -54,8 +52,8 @@ export default function AgentsPage() {
     e.preventDefault()
     setInviting(true)
 
-    // Step 1: Upsert profile with correct role so it's ready when they log in
-    const { error } = await supabase.from('profiles').upsert({
+    // Store invite in pending_invites table (no id needed, just email+role+name)
+    const { error } = await supabase.from('pending_invites').upsert({
       email: inviteEmail,
       role: inviteRole,
       full_name: inviteName,
@@ -67,17 +65,15 @@ export default function AgentsPage() {
       return
     }
 
-    // Step 2: Generate invite link
     const link = `${window.location.origin}/invite?email=${encodeURIComponent(inviteEmail)}`
     setInviteLink(link)
     setInviting(false)
-    loadAgents()
   }
 
   async function copyLink() {
     await navigator.clipboard.writeText(inviteLink)
     setCopied(true)
-    toast.success('Invite link copied!')
+    toast.success('Copied! Send this link to ' + inviteEmail)
     setTimeout(() => setCopied(false), 2000)
   }
 
@@ -103,11 +99,10 @@ export default function AgentsPage() {
         }
       />
 
-      {/* Invite Modal */}
       {showInvite && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-modal">
-            <h3 className="font-semibold text-gray-900 mb-4">Invite New Member</h3>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-md shadow-modal">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Invite New Member</h3>
 
             {!inviteLink ? (
               <form onSubmit={handleInvite} className="space-y-4">
@@ -141,27 +136,22 @@ export default function AgentsPage() {
                 </div>
               </form>
             ) : (
-              /* Show the generated link */
               <div className="space-y-4">
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm font-medium text-green-700 mb-1">✅ Invite ready for {inviteName}</p>
                   <p className="text-xs text-green-600">Role: <span className="font-semibold capitalize">{inviteRole}</span></p>
                 </div>
                 <div>
-                  <label className="notion-label">Invite Link — send this to {inviteEmail}</label>
+                  <label className="notion-label">Send this link to {inviteEmail}</label>
                   <div className="flex gap-2">
-                    <input
-                      className="notion-input text-xs flex-1"
-                      value={inviteLink}
-                      readOnly
-                    />
+                    <input className="notion-input text-xs flex-1" value={inviteLink} readOnly />
                     <button onClick={copyLink} className="btn-primary px-3 shrink-0">
                       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
                 <p className="text-xs text-gray-400">
-                  Send this link via WhatsApp or Telegram. They click it, enter their Gmail, get a code, and they&apos;re in with <span className="font-medium capitalize">{inviteRole}</span> access.
+                  They click the link → enter Gmail → get OTP code → they are in as <span className="font-medium capitalize">{inviteRole}</span>.
                 </p>
                 <button onClick={resetInvite} className="btn-secondary w-full justify-center">Done</button>
               </div>
@@ -183,7 +173,7 @@ export default function AgentsPage() {
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">{agent.full_name || '—'}</p>
+                  <p className="font-semibold text-gray-900 dark:text-white truncate">{agent.full_name || '—'}</p>
                   <p className="text-xs text-gray-400 truncate">{agent.email}</p>
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0 ${agent.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
@@ -191,13 +181,13 @@ export default function AgentsPage() {
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="bg-gray-50 rounded-lg p-3">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                   <p className="text-xs text-gray-400 mb-1">Revenue</p>
-                  <p className="font-bold text-gray-900">{formatCurrency(agent.total_revenue)}</p>
+                  <p className="font-bold text-gray-900 dark:text-white">{formatCurrency(agent.total_revenue)}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                   <p className="text-xs text-gray-400 mb-1">Total Sales</p>
-                  <p className="font-bold text-gray-900">{agent.total_sales}</p>
+                  <p className="font-bold text-gray-900 dark:text-white">{agent.total_sales}</p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-3">
                   <p className="text-xs text-green-500 mb-1">New Buyers</p>
