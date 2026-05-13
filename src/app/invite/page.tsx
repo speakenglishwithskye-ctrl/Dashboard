@@ -17,8 +17,14 @@ function InviteContent() {
 
   useEffect(() => {
     const emailParam = searchParams.get('email')
-    if (emailParam) setEmail(decodeURIComponent(emailParam))
-  }, [searchParams])
+    if (emailParam) {
+      const decoded = decodeURIComponent(emailParam)
+      setEmail(decoded)
+      // Load their name and role from pending_invites
+      supabase.from('pending_invites').select('full_name').eq('email', decoded).single()
+        .then(({ data }) => { if (data?.full_name) setFullName(data.full_name) })
+    }
+  }, [searchParams, supabase])
 
   async function handleSendOTP(e: React.FormEvent) {
     e.preventDefault()
@@ -29,17 +35,40 @@ function InviteContent() {
     })
     setLoading(false)
     if (error) { toast.error(error.message); return }
-    toast.success('6-digit code sent to your Gmail!')
+    toast.success('Code sent to your Gmail!')
     setStep('otp')
   }
 
   async function handleVerifyOTP(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'email' })
+    const { data: authData, error } = await supabase.auth.verifyOtp({
+      email, token: otp, type: 'email'
+    })
     if (error) { toast.error('Invalid code.'); setLoading(false); return }
-    // Update profile name
-    await supabase.from('profiles').update({ full_name: fullName }).eq('email', email)
+
+    // After login, apply role from pending_invites to their profile
+    if (authData.user) {
+      const { data: invite } = await supabase
+        .from('pending_invites')
+        .select('role, full_name')
+        .eq('email', email)
+        .single()
+
+      if (invite) {
+        await supabase.from('profiles').upsert({
+          id: authData.user.id,
+          email,
+          role: invite.role,
+          full_name: fullName || invite.full_name,
+        }, { onConflict: 'id' })
+
+        // Clean up invite
+        await supabase.from('pending_invites').delete().eq('email', email)
+      }
+    }
+
+    setLoading(false)
     window.location.href = '/dashboard/overview'
   }
 
@@ -56,52 +85,49 @@ function InviteContent() {
         <h1 className="text-2xl font-bold text-gray-900 mb-1">You&apos;re invited!</h1>
         <p className="text-sm text-gray-500 mb-8">
           {step === 'name'
-            ? 'Set your name and confirm your email to get started.'
-            : `Enter the 6-digit code sent to ${email}`}
+            ? 'Confirm your name and email to get started.'
+            : `Enter the code sent to ${email}`}
         </p>
 
         {step === 'name' ? (
           <form onSubmit={handleSendOTP} className="space-y-4">
             <div>
               <label className="notion-label">Your full name</label>
-              <input
-                className="notion-input"
-                placeholder="Jane Smith"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                required
-              />
+              <input className="notion-input" placeholder="Jane Smith"
+                value={fullName} onChange={e => setFullName(e.target.value)} required />
             </div>
             <div>
               <label className="notion-label">Gmail address</label>
-              <input
-                type="email"
-                className="notion-input"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-              />
+              <input type="email" className="notion-input"
+                value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
             <button type="submit" className="btn-primary w-full justify-center py-2.5" disabled={loading}>
-              {loading ? 'Sending…' : 'Send code'}
+              {loading ? 'Sending…' : 'Send Code'}
             </button>
           </form>
         ) : (
           <form onSubmit={handleVerifyOTP} className="space-y-4">
             <div>
-              <label className="notion-label">6-digit code</label>
+              <label className="notion-label">Login code (6-8 digits)</label>
               <input
                 type="text"
-                className="notion-input text-center text-2xl tracking-[0.5em] font-mono"
-                placeholder="000000"
+                className="notion-input text-center text-2xl tracking-[0.4em] font-mono"
+                placeholder="00000000"
                 value={otp}
-                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                maxLength={6}
+                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                maxLength={8}
                 required
+                autoFocus
               />
             </div>
-            <button type="submit" className="btn-primary w-full justify-center py-2.5" disabled={loading || otp.length < 6}>
+            <button type="submit" className="btn-primary w-full justify-center py-2.5"
+              disabled={loading || otp.length < 6}>
               {loading ? 'Verifying…' : 'Access Dashboard'}
+            </button>
+            <button type="button"
+              className="w-full text-sm text-gray-500 hover:text-gray-700 text-center py-1"
+              onClick={() => { setStep('name'); setOtp('') }}>
+              ← Back
             </button>
           </form>
         )}
